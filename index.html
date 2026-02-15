@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>互动新闻故事：雾港失联信号</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ok: #22c55e;
+      --danger: #f43f5e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 10%, #1e293b, var(--bg));
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(880px, 100%);
+      background: color-mix(in srgb, var(--panel) 92%, black 8%);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.3rem, 2vw, 2rem);
+    }
+
+    .subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+
+    .card {
+      border: 1px solid #334155;
+      border-radius: 14px;
+      background: #0b1220;
+      padding: 20px;
+      min-height: 210px;
+    }
+
+    .meta {
+      color: var(--accent);
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+
+    #storyText {
+      line-height: 1.7;
+      margin-bottom: 18px;
+      white-space: pre-line;
+    }
+
+    .choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid #475569;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.08s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    button:hover { border-color: var(--accent); background: #243447; }
+    button:active { transform: translateY(1px); }
+
+    .lock {
+      margin-top: 22px;
+      border-top: 1px dashed #334155;
+      padding-top: 18px;
+      display: none;
+    }
+
+    .lock.active { display: block; }
+
+    .lock-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"] {
+      background: #020617;
+      color: var(--text);
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 10px 12px;
+      width: 130px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    .result {
+      margin-top: 10px;
+      min-height: 1.4em;
+      font-size: 0.95rem;
+    }
+
+    .result.ok { color: var(--ok); }
+    .result.err { color: var(--danger); }
+
+    .footer {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>互动新闻故事：雾港失联信号</h1>
+    <p class="subtitle">你是一名调查记者，通过不同采访路径拼出真相，最终解锁关键证据。</p>
+
+    <section class="card">
+      <div id="meta" class="meta"></div>
+      <article id="storyText"></article>
+      <div id="choices" class="choices"></div>
+
+      <div id="lockGame" class="lock">
+        <h2>证据柜密码锁</h2>
+        <p>线索提示：你采访过的三类人群首字母依次组成 4 位密码（英文大写）。</p>
+        <div class="lock-row">
+          <input id="codeInput" type="text" maxlength="4" placeholder="例如 ABCD" />
+          <button id="unlockBtn" type="button">尝试解锁</button>
+          <button id="hintBtn" type="button">再给一点提示</button>
+        </div>
+        <div id="lockResult" class="result" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <p class="footer">分支并无绝对正确路线；任何选择都会影响你看到的证词与最终报道角度。</p>
+  </main>
+
+  <script>
+    const nodes = {
+      start: {
+        label: "深夜热线",
+        text: "凌晨两点，你接到匿名来电：\n“雾港货运码头，今晚有一艘船没有登记却在卸货。”\n你必须决定先从哪里开始调查。",
+        choices: [
+          { text: "去码头现场", next: "dock" },
+          { text: "联系警方消息源", next: "police" },
+          { text: "先采访医院急诊", next: "hospital" }
+        ]
+      },
+      dock: {
+        label: "码头走访",
+        text: "你在5号泊位发现被撕下的集装箱标签，夜班工人低声说“有冷藏箱在滴水，闻起来像化学药剂”。",
+        choices: [
+          { text: "追问夜班工人", next: "worker" },
+          { text: "拍下证据并去医院核实", next: "hospital" }
+        ],
+        addTag: "W"
+      },
+      police: {
+        label: "警局外围",
+        text: "你的警方线人透露：今晚的监控有 13 分钟“维护空窗”，这通常只会出现在高压任务中。",
+        choices: [
+          { text: "要求看出警记录", next: "record" },
+          { text: "转去码头找目击者", next: "dock" }
+        ],
+        addTag: "P"
+      },
+      hospital: {
+        label: "急诊科",
+        text: "急诊医生表示，今晚同一时段来了三名呼吸衰竭患者，都来自港区仓库附近。",
+        choices: [
+          { text: "采访医生并查看病例趋势", next: "doctor" },
+          { text: "回码头对照时间线", next: "dock" }
+        ],
+        addTag: "H"
+      },
+      worker: {
+        label: "工人证词",
+        text: "工人给你看了一张模糊照片：一个标记为“R-17”的箱体被直接运往旧冷库，而非海关检查区。",
+        choices: [
+          { text: "去旧冷库", next: "cold" },
+          { text: "联系警方确认R-17", next: "record" }
+        ]
+      },
+      record: {
+        label: "内部记录",
+        text: "你看到被删改的电子记录。R-17 在系统中被标注为“空箱”，但重量却高达 4.2 吨。",
+        choices: [
+          { text: "去旧冷库核实", next: "cold" },
+          { text: "回医院查污染来源", next: "doctor" }
+        ]
+      },
+      doctor: {
+        label: "医学线索",
+        text: "医生指出患者体内存在罕见工业溶剂残留，常用于非法处理高危化学品。",
+        choices: [
+          { text: "汇总证据，准备发稿", next: "finale" }
+        ]
+      },
+      cold: {
+        label: "旧冷库",
+        text: "冷库门口封条是新的，地面却有旧血迹和化学灼痕。你确认这不是普通走私，而是有组织的危险废料转运。",
+        choices: [
+          { text: "汇总证据，准备发稿", next: "finale" }
+        ]
+      },
+      finale: {
+        label: "发稿前夜",
+        text: "你已拼齐主线：监控空窗 + 假空箱 + 医疗异常。\n但真正能坐实调查的是一份被锁在证据柜的出货清单。\n输入密码，公开真相。",
+        choices: []
+      }
+    };
+
+    const visited = new Set();
+    const tags = [];
+
+    const metaEl = document.getElementById('meta');
+    const storyTextEl = document.getElementById('storyText');
+    const choicesEl = document.getElementById('choices');
+    const lockGameEl = document.getElementById('lockGame');
+    const codeInputEl = document.getElementById('codeInput');
+    const lockResultEl = document.getElementById('lockResult');
+
+    function trackTag(node) {
+      if (node.addTag && !tags.includes(node.addTag)) {
+        tags.push(node.addTag);
+      }
+    }
+
+    function renderNode(id) {
+      const node = nodes[id];
+      if (!node) return;
+
+      visited.add(id);
+      trackTag(node);
+
+      metaEl.textContent = `章节：${node.label} ｜ 已探索节点：${visited.size}`;
+      storyTextEl.textContent = node.text;
+      choicesEl.innerHTML = '';
+
+      node.choices.forEach((choice) => {
+        const btn = document.createElement('button');
+        btn.textContent = choice.text;
+        btn.addEventListener('click', () => renderNode(choice.next));
+        choicesEl.appendChild(btn);
+      });
+
+      if (id === 'finale') {
+        lockGameEl.classList.add('active');
+      }
+    }
+
+    function getExpectedCode() {
+      const padded = [...tags, 'W', 'P', 'H'].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 4);
+      return padded.join('').toUpperCase();
+    }
+
+    function tryUnlock() {
+      const expected = getExpectedCode();
+      const input = codeInputEl.value.trim().toUpperCase();
+
+      lockResultEl.className = 'result';
+      if (input.length !== 4) {
+        lockResultEl.textContent = '请输入 4 位英文密码。';
+        lockResultEl.classList.add('err');
+        return;
+      }
+
+      if (input === expected) {
+        lockResultEl.textContent = '解锁成功：出货清单显示涉事企业与监管链条，报道已自动发布。';
+        lockResultEl.classList.add('ok');
+        choicesEl.innerHTML = '<button type="button" id="restart">重新体验不同分支</button>';
+        document.getElementById('restart').addEventListener('click', () => window.location.reload());
+      } else {
+        lockResultEl.textContent = '密码错误：柜门发出警报，请根据你采访过的人群首字母重试。';
+        lockResultEl.classList.add('err');
+      }
+    }
+
+    document.getElementById('unlockBtn').addEventListener('click', tryUnlock);
+    document.getElementById('hintBtn').addEventListener('click', () => {
+      const expected = getExpectedCode();
+      lockResultEl.className = 'result';
+      lockResultEl.textContent = `提示：密码首位是 ${expected[0]}，并且与采访路径顺序相关。`;
+    });
+
+    renderNode('start');
+  </script>
+</body>
+</html>
